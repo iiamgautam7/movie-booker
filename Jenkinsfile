@@ -74,9 +74,70 @@ pipeline {
         }
         success {
             echo 'Pipeline completed successfully!'
+            
+            // Send success email notification
+            emailext (
+                subject: "✅ Movie Booker Build SUCCESS - Build #${BUILD_NUMBER}",
+                body: """
+                <h2>🎉 Build Completed Successfully!</h2>
+                
+                <h3>Build Details:</h3>
+                <ul>
+                    <li><strong>Project:</strong> ${JOB_NAME}</li>
+                    <li><strong>Build Number:</strong> ${BUILD_NUMBER}</li>
+                    <li><strong>Build URL:</strong> <a href="${BUILD_URL}">${BUILD_URL}</a></li>
+                    <li><strong>Duration:</strong> ${BUILD_DURATION}</li>
+                    <li><strong>Timestamp:</strong> ${BUILD_TIMESTAMP}</li>
+                </ul>
+                
+                <h3>Changes:</h3>
+                <p>${CHANGES}</p>
+                
+                <h3>Artifacts:</h3>
+                <p>Database file (moviebooker.db) has been archived and is available for download.</p>
+                
+                <p>All stages completed successfully:
+                ✅ Python Setup<br>
+                ✅ Database Initialization<br>
+                ✅ Flask Server Started<br>
+                ✅ Worker Execution<br>
+                ✅ Artifact Archiving</p>
+                
+                <p><em>Automated message from Jenkins CI/CD Pipeline</em></p>
+                """,
+                mimeType: 'text/html',
+                to: 'your-email@example.com'  // Replace with your actual email
+            )
         }
         failure {
             echo 'Pipeline failed. Check the logs above for details.'
+            
+            // Send failure email notification
+            emailext (
+                subject: "❌ Movie Booker Build FAILED - Build #${BUILD_NUMBER}",
+                body: """
+                <h2>🚨 Build Failed!</h2>
+                
+                <h3>Build Details:</h3>
+                <ul>
+                    <li><strong>Project:</strong> ${JOB_NAME}</li>
+                    <li><strong>Build Number:</strong> ${BUILD_NUMBER}</li>
+                    <li><strong>Build URL:</strong> <a href="${BUILD_URL}">${BUILD_URL}</a></li>
+                    <li><strong>Duration:</strong> ${BUILD_DURATION}</li>
+                    <li><strong>Timestamp:</strong> ${BUILD_TIMESTAMP}</li>
+                </ul>
+                
+                <h3>Changes:</h3>
+                <p>${CHANGES}</p>
+                
+                <h3>Failure Details:</h3>
+                <p>Please check the build logs at: <a href="${BUILD_URL}console">${BUILD_URL}console</a></p>
+                
+                <p><em>Automated message from Jenkins CI/CD Pipeline</em></p>
+                """,
+                mimeType: 'text/html',
+                to: 'your-email@example.com'  // Replace with your actual email
+            )
         }
     }
 }
