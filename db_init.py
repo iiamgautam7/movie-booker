@@ -31,6 +31,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-if __name__ == "_main_":
+if __name__ == "__main__":
     init_db()
+
     print("DB initialized at", DB_PATH)
