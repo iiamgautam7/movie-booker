@@ -60,8 +60,9 @@ def view_requests():
     conn.close()
     return render_template("requests.html", requests=rows)
 
-if __name__ == "_main_":
+if __name__ == "__main__":
     # create DB on first run
     import db_init
     db_init.init_db()
+
     app.run(host=FLASK_HOST, port=FLASK_PORT, debug=True)
