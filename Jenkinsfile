@@ -37,7 +37,6 @@ pipeline {
         stage('Start Flask (background)') {
             steps {
                 script {
-                    // Start Flask app in background
                     bat '''
                         start /b venv\\Scripts\\python.exe app.py
                         ping 127.0.0.1 -n 6 > nul
@@ -56,10 +55,7 @@ pipeline {
         
         stage('Archive DB') {
             steps {
-                // Archive the database file as build artifact
                 archiveArtifacts artifacts: 'moviebooker.db', allowEmptyArchive: true
-                
-                // Also archive any logs if they exist
                 archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             }
         }
@@ -67,77 +63,79 @@ pipeline {
     
     post {
         always {
-            // Clean up: kill any python processes started by Jenkins
             bat '''
                 taskkill /F /IM python.exe /T || exit 0
             '''
         }
         success {
             echo 'Pipeline completed successfully!'
-            
-            // Send success email notification
-            emailext (
-                subject: "✅ Movie Booker Build SUCCESS - Build #${BUILD_NUMBER}",
-                body: """
-                <h2>🎉 Build Completed Successfully!</h2>
-                
-                <h3>Build Details:</h3>
-                <ul>
-                    <li><strong>Project:</strong> ${JOB_NAME}</li>
-                    <li><strong>Build Number:</strong> ${BUILD_NUMBER}</li>
-                    <li><strong>Build URL:</strong> <a href="${BUILD_URL}">${BUILD_URL}</a></li>
-                    <li><strong>Duration:</strong> ${BUILD_DURATION}</li>
-                    <li><strong>Timestamp:</strong> ${BUILD_TIMESTAMP}</li>
-                </ul>
-                
-                <h3>Changes:</h3>
-                <p>${CHANGES}</p>
-                
-                <h3>Artifacts:</h3>
-                <p>Database file (moviebooker.db) has been archived and is available for download.</p>
-                
-                <p>All stages completed successfully:
-                ✅ Python Setup<br>
-                ✅ Database Initialization<br>
-                ✅ Flask Server Started<br>
-                ✅ Worker Execution<br>
-                ✅ Artifact Archiving</p>
-                
-                <p><em>Automated message from Jenkins CI/CD Pipeline</em></p>
-                """,
-                mimeType: 'text/html',
-                to: 'your-email@example.com'  // Replace with your actual email
-            )
+            script {
+                try {
+                    emailext (
+                        subject: "✅ Movie Booker Build SUCCESS - Build #${BUILD_NUMBER}",
+                        body: """
+                        <h2>🎉 Build Completed Successfully!</h2>
+                        
+                        <h3>Build Details:</h3>
+                        <ul>
+                            <li><strong>Project:</strong> ${JOB_NAME}</li>
+                            <li><strong>Build Number:</strong> ${BUILD_NUMBER}</li>
+                            <li><strong>Build URL:</strong> <a href="${BUILD_URL}">${BUILD_URL}</a></li>
+                            <li><strong>Status:</strong> ${currentBuild.result ?: 'SUCCESS'}</li>
+                        </ul>
+                        
+                        <h3>Changes:</h3>
+                        <p>${env.GIT_COMMIT ? "Commit: ${env.GIT_COMMIT}" : "No commit info available"}</p>
+                        
+                        <h3>Stages Completed:</h3>
+                        <p>✅ Python Setup<br>
+                        ✅ Database Initialization<br>
+                        ✅ Flask Server Started<br>
+                        ✅ Worker Execution<br>
+                        ✅ Artifact Archiving</p>
+                        
+                        <p>Database file has been archived and is available for download.</p>
+                        
+                        <p><em>Automated message from Jenkins CI/CD Pipeline</em></p>
+                        """,
+                        mimeType: 'text/html',
+                        to: 'gautambanoth@gmail.com'
+                    )
+                } catch (Exception e) {
+                    echo "Failed to send success email: ${e.getMessage()}"
+                }
+            }
         }
         failure {
             echo 'Pipeline failed. Check the logs above for details.'
-            
-            // Send failure email notification
-            emailext (
-                subject: "❌ Movie Booker Build FAILED - Build #${BUILD_NUMBER}",
-                body: """
-                <h2>🚨 Build Failed!</h2>
-                
-                <h3>Build Details:</h3>
-                <ul>
-                    <li><strong>Project:</strong> ${JOB_NAME}</li>
-                    <li><strong>Build Number:</strong> ${BUILD_NUMBER}</li>
-                    <li><strong>Build URL:</strong> <a href="${BUILD_URL}">${BUILD_URL}</a></li>
-                    <li><strong>Duration:</strong> ${BUILD_DURATION}</li>
-                    <li><strong>Timestamp:</strong> ${BUILD_TIMESTAMP}</li>
-                </ul>
-                
-                <h3>Changes:</h3>
-                <p>${CHANGES}</p>
-                
-                <h3>Failure Details:</h3>
-                <p>Please check the build logs at: <a href="${BUILD_URL}console">${BUILD_URL}console</a></p>
-                
-                <p><em>Automated message from Jenkins CI/CD Pipeline</em></p>
-                """,
-                mimeType: 'text/html',
-                to: 'your-email@example.com'  // Replace with your actual email
-            )
+            script {
+                try {
+                    emailext (
+                        subject: "❌ Movie Booker Build FAILED - Build #${BUILD_NUMBER}",
+                        body: """
+                        <h2>🚨 Build Failed!</h2>
+                        
+                        <h3>Build Details:</h3>
+                        <ul>
+                            <li><strong>Project:</strong> ${JOB_NAME}</li>
+                            <li><strong>Build Number:</strong> ${BUILD_NUMBER}</li>
+                            <li><strong>Build URL:</strong> <a href="${BUILD_URL}">${BUILD_URL}</a></li>
+                            <li><strong>Console Log:</strong> <a href="${BUILD_URL}console">View Logs</a></li>
+                            <li><strong>Status:</strong> ${currentBuild.result ?: 'FAILED'}</li>
+                        </ul>
+                        
+                        <h3>Error Details:</h3>
+                        <p>Please check the build logs for detailed error information.</p>
+                        
+                        <p><em>Automated message from Jenkins CI/CD Pipeline</em></p>
+                        """,
+                        mimeType: 'text/html',
+                        to: 'gautambanoth@gmail.com'
+                    )
+                } catch (Exception e) {
+                    echo "Failed to send failure email: ${e.getMessage()}"
+                }
+            }
         }
     }
 }
