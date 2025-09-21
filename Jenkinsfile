@@ -1,62 +1,82 @@
 pipeline {
     agent any
-
+    
     environment {
-        PYTHON = 'C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python310\\python.exe'
-        VENV = "${WORKSPACE}\\venv"
+        FLASK_HOST = '127.0.0.1'
+        FLASK_PORT = '5000'
+        FLASK_BASE_URL = "http://${FLASK_HOST}:${FLASK_PORT}"
     }
-
+    
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
-
+        
         stage('Setup Python') {
             steps {
-                bat """
-                if not exist "${VENV}" (${PYTHON} -m venv "${VENV}")
-                "${VENV}\\Scripts\\python.exe" -m pip install --upgrade pip
-                "${VENV}\\Scripts\\python.exe" -m pip install -r requirements.txt
-                """
+                bat '''
+                    if not exist "venv" (
+                        python -m venv venv
+                    )
+                    venv\\Scripts\\python.exe -m pip install --upgrade pip
+                    venv\\Scripts\\python.exe -m pip install -r requirements.txt
+                '''
             }
         }
-
+        
+        stage('Initialize Database') {
+            steps {
+                bat '''
+                    venv\\Scripts\\python.exe db_init.py
+                '''
+            }
+        }
+        
         stage('Start Flask (background)') {
             steps {
-                bat """
-                REM Start Flask in background using START (non-blocking)
-                start "" /B "${VENV}\\Scripts\\python.exe" app.py > flask.log 2>&1
-                powershell -Command "Start-Sleep -Seconds 3"
-                REM Wait until the site responds (timeout 30s)
-                powershell -Command ^
-                \"$url='http://127.0.0.1:5000'; $t=0; while ($t -lt 30) { try { $r=Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 3; if ($r.StatusCode -eq 200) { Write-Host 'Flask ready'; exit 0 } } catch {}; Start-Sleep -Seconds 1; $t++ }; Write-Error 'Flask did not respond'; exit 1\"
-                """
+                script {
+                    // Start Flask app in background
+                    bat '''
+                        start /b venv\\Scripts\\python.exe app.py
+                        timeout /t 5
+                    '''
+                }
             }
         }
-
+        
         stage('Run Worker') {
             steps {
-                bat """
-                "${VENV}\\Scripts\\python.exe" worker.py
-                """
+                bat '''
+                    venv\\Scripts\\python.exe worker.py
+                '''
             }
         }
-
+        
         stage('Archive DB') {
             steps {
-                archiveArtifacts artifacts: 'moviebooker.db', fingerprint: true
+                // Archive the database file as build artifact
+                archiveArtifacts artifacts: 'moviebooker.db', allowEmptyArchive: true
+                
+                // Also archive any logs if they exist
+                archiveArtifacts artifacts: '*.log', allowEmptyArchive: true
             }
         }
     }
-
+    
     post {
         always {
-            bat """
-            REM Clean up: kill any python processes started by Jenkins (optional)
-            taskkill /F /IM python.exe /T || exit 0
-            """
+            // Clean up: kill any python processes started by Jenkins
+            bat '''
+                taskkill /F /IM python.exe /T || exit 0
+            '''
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Check the logs above for details.'
         }
     }
 }
